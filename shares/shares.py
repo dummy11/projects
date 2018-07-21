@@ -5,7 +5,9 @@ import datetime
 import os
 import sys
 import argparse
+from multiprocessing import Pool, Queue
 from my_filter import *
+from find_up_down import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--day_before', action='store', help='parse code data between (today - day_before) ~ today, the day all mean trade day', default='3')
@@ -15,8 +17,12 @@ parser.add_argument('-c', '--clean', action='store_true', help='clean the local 
 args = parser.parse_args()
 
 code_time_region = {}
-match_cnt = 0
-match_code = []
+printed_code = []
+limit_up_match_list = []
+up_down_match_list = []
+limit_up_match_queue = Queue()
+up_down_match_queue = Queue()
+limit_up_match_queue_temp = Queue()
 
 def filter_code(all_company):
     valid_code = []
@@ -41,8 +47,6 @@ def get_time_region(code, day_before):
     saved_pre_day = datetime.datetime(year=1900,month=1,day=1)
     current_latest_day = datetime.datetime
     current_pre_day = datetime.datetime
-    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
-    pre_day = pre_day.replace(hour=0, minute=0, second=0, microsecond=0)
 
     if not code_time_region.has_key(code):
         time_empty = 1
@@ -59,7 +63,10 @@ def get_time_region(code, day_before):
             if (hour > 15) or (hour == 15 and minute > 15): #only after 15:05 will get today's code data
                 current_latest_day = today
             else:
-                current_latest_day = today - datetime.timedelta(1)
+                if weekday == 1:
+                    current_latest_day = today - datetime.timedelta(3)
+                else:
+                    current_latest_day = today - datetime.timedelta(1)
         else:
             current_latest_day = saved_latest_day
         saved_pre_day = datetime.datetime.strptime(time_region[0], '%Y-%m-%d')
@@ -74,6 +81,10 @@ def get_time_region(code, day_before):
     #     time_region.append(current_pre_day.strftime('%Y-%m-%d'))
     #     time_region.append(current_latest_day.strftime('%Y-%m-%d'))
     #     code_time_region[code] = time_region
+    today = today.replace(hour=0, minute=0, second=0, microsecond=0)
+    pre_day = pre_day.replace(hour=0, minute=0, second=0, microsecond=0)
+    current_pre_day = current_pre_day.replace(hour=0, minute=0, second=0, microsecond=0)
+    current_latest_day = current_latest_day.replace(hour=0, minute=0, second=0, microsecond=0)
     return saved_latest_day, saved_pre_day, today, pre_day, current_latest_day, current_pre_day
 
 def get_hist_data(code, get_hist_start, get_hist_end, region_start, region_end):
@@ -150,10 +161,9 @@ def get_data(valid_code, day_before):
         f.write(str(code_time_region))
 
 def parse_code_data(code, day_before, retry_num):
-    global match_cnt
     threshold = 0.03
     index = 0
-
+    up_down = find_up_down()
     if os.path.exists("local_data/%s.csv"%code):
         data = pd.read_csv("local_data/%s.csv"%code)
     else:
@@ -175,42 +185,72 @@ def parse_code_data(code, day_before, retry_num):
             p_change = list(data.p_change)
             if  (close[0] >  close[index]*0.9*(1-threshold) and close[0] < close[index]*0.9*(1+threshold)): #\
                 #or (low[0] >  close[index]*0.9*(1-threshold+0.005) and low[0] < close[index]*0.9*(1+threshold-0.005)):
-                if not code in match_code:
-                    match_code.append(code)
-                    match_cnt += 1
+                if not code in limit_up_match_list:
+                    #match_code.append(code)
+                    limit_up_match_queue.put(code)
+                    limit_up_match_queue_temp.put(code)
                     # if match_cnt >= int(args.num):
                     #     break
         index = 0
+        match_up_down = up_down.is_hist_up_down(data)
+        if match_up_down:
+            up_down_match_queue.put(code)
     else:
         #print ('%s has no local data'%code)
         pass
 
 def parse_hist_data(valid_code, day_before):
 
+    global limit_up_match_list
     retry_num = 0
+    #match_code = []
     day_before_list = [day_before]*len(valid_code)
     print ('#####################################')
     print ('The codes match the condition are as follow : ')
-    while (match_cnt < int(args.num)):
-        retry_num_list = [retry_num]*len(valid_code)
-        map(parse_code_data, valid_code, day_before_list, retry_num_list)
+    while (limit_up_match_queue.qsize() < int(args.num)):
+        pool = Pool(30)
+        #retry_num_list = [retry_num]*len(valid_code)
+        #map(parse_code_data, valid_code, day_before_list, retry_num_list)
+        for code in valid_code:
+            pool.apply_async(parse_code_data, args=(code, day_before, retry_num))
+        pool.close()
+        pool.join()
+
+        #limit_up_match_list = []
+        while not limit_up_match_queue_temp.empty():
+            code = limit_up_match_queue_temp.get()
+            limit_up_match_list.append(code)
         retry_num += 1
         if retry_num > 10:
             break
-    filter_match_code(match_code)
+    # while (not limit_up_match_queue.empty()):
+    #     code = limit_up_match_queue.get()
+    #     match_code.append(code)
+    while not up_down_match_queue.empty():
+        code = up_down_match_queue.get()
+        up_down_match_list.append(code)
+    filter_match_code(limit_up_match_list, 'limit_up')
+    filter_match_code(up_down_match_list, 'up_down')
 
-def filter_match_code(match_code):
+def filter_match_code(match_code, match_type):
     f = my_filter(match_code)
     match_code, restrict_code, expect_loss_code = f.filter_code
     print ('') # to align the display
+    print ('%s match code are :'%match_type)
     for code in match_code:
-        print (code)
+        if code not in printed_code:
+            print (code)
+            printed_code.append(code)
     print ('restrict code are : ')
     for code in restrict_code:
-        print (code)
+        if code not in printed_code:
+            print (code)
+            printed_code.append(code)
     print ('expect loss code are : ')
     for code in expect_loss_code:
-        print (code)
+        if code not in printed_code:
+            print (code)
+            printed_code.append(code)
 
 def parse_real_time_data(valid_code, day_before):
     threshold = 0.03
@@ -220,7 +260,7 @@ def parse_real_time_data(valid_code, day_before):
     today = datetime.datetime.today()
     hour = int(today.strftime('%H'))
     minute = int(today.strftime('%M'))
-
+    up_down = find_up_down()
     if (hour > 9 or (hour == 9 and minute > 30)) and hour < 15:
         while (hour < 15):
             retry_num += 1
@@ -231,6 +271,9 @@ def parse_real_time_data(valid_code, day_before):
                 all_code = list(all_data.code)
                 i = all_code.index(code)
                 trade = all_data.trade[i]
+                real_low = all_data.low[i]
+                real_high = all_data.high[i]
+                real_open = all_data.open[i]
 
                 if os.path.exists("local_data/%s.csv"%code):
                     data = pd.read_csv("local_data/%s.csv"%code)
@@ -257,7 +300,11 @@ def parse_real_time_data(valid_code, day_before):
                                 #print (code)
                                 match_code.append(code)
                     index = 0
-            filter_match_code(match_code)
+                    match_up_down = up_down.is_real_time_up_down(data, trade, real_open, real_high, real_low)
+                    if match_up_down:
+                        up_down_match_list.append(code)
+            filter_match_code(match_code, 'limit_up')
+            filter_match_code(up_down_match_list, 'up_down')
             time.sleep(300) #every 5 minutes get real time data
             today = datetime.datetime.today()
             hour = int(today.strftime('%H'))

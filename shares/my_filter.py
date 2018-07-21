@@ -44,8 +44,10 @@ class my_filter(object):
                     self.expect_loss_code.append(code)
 
 if __name__ == "__main__":
-    all_company = ts.get_stock_basics()
-    valid_code = list(all_company.index)
-    f = my_filter(valid_code)
-    valid_code, restrict_code, expect_loss_code = f.filter_code
-    f.forecast()
+    # all_company = ts.get_stock_basics()
+    # valid_code = list(all_company.index)
+    # f = my_filter(valid_code)
+    # valid_code, restrict_code, expect_loss_code = f.filter_code
+    # f.forecast()
+    data = ts.get_hist_data('603528', start='2018-07-15', end='2018-07-19')
+    print data
