@@ -7,7 +7,7 @@ class find_two_three_low(object):
 
     def is_two_low(self, data):
         threshold = 0.03
-        continue_day = 30
+        continue_day = 20
         day_before = 3
         low = list(data.low)
         if len(low) >= continue_day:

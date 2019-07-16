@@ -9,6 +9,8 @@ from multiprocessing import Pool, Queue
 from my_filter import *
 from find_up_down import *
 from find_continue_red import *
+from find_two_three_low import *
+from find_break_through_average import *
 from send_mail import *
 
 parser = argparse.ArgumentParser()
@@ -32,11 +34,15 @@ limit_up_match_list = []
 yesterday_limit_up_list = []
 up_down_match_list = []
 continue_red_match_list = []
+two_three_low_match_list = []
+break_through_average_match_list = []
 loss_code_list = []
 limit_up_match_queue = Queue()
 yesterday_limit_up_queue = Queue()
 up_down_match_queue = Queue()
 continue_red_match_queue = Queue()
+two_three_low_match_queue = Queue()
+break_through_average_match_queue = Queue()
 limit_up_match_queue_temp = Queue()
 threshold = 0.03
 yesterday_limit_up_threshold = 1
@@ -194,6 +200,8 @@ def parse_code_data(code, day_before, retry_num):
     index = 0
     up_down = find_up_down()
     continue_red = find_continue_red()
+    two_three_low = find_two_three_low()
+    break_through = find_break_through_average()
     if os.path.exists("local_data/%s.csv"%code):
         data = pd.read_csv("local_data/%s.csv"%code)
     else:
@@ -234,10 +242,16 @@ def parse_code_data(code, day_before, retry_num):
         index = 0
         match_up_down = up_down.is_hist_up_down(data)
         match_continue_red = continue_red.is_continue_red(data)
+        match_two_three_low = two_three_low.is_two_three_low(data)
+        match_break_through_average = break_through.is_break_through_average(data)
         if match_up_down:
             up_down_match_queue.put(code)
         if match_continue_red:
             continue_red_match_queue.put(code)
+        if match_two_three_low:
+            two_three_low_match_queue.put(code)
+        if match_break_through_average:
+            break_through_average_match_queue.put(code)
 
     else:
         #print ('%s has no local data'%code)
@@ -276,14 +290,22 @@ def parse_hist_data(valid_code, day_before):
     while not continue_red_match_queue.empty():
         code = continue_red_match_queue.get()
         continue_red_match_list.append(code)
+    while not two_three_low_match_queue.empty():
+        code = two_three_low_match_queue.get()
+        two_three_low_match_list.append(code)
     while not yesterday_limit_up_queue.empty():
         code = yesterday_limit_up_queue.get()
         yesterday_limit_up_list.append(code)
+    while not break_through_average_match_queue.empty():
+        code = break_through_average_match_queue.get()
+        break_through_average_match_list.append(code)
 
     if not args.limit_up_only:
         filter_match_code(up_down_match_list, 'up_down')
         filter_match_code(continue_red_match_list, 'continue_red')
-    filter_match_code(yesterday_limit_up_list, 'yesterday_limit_up')
+        filter_match_code(two_three_low_match_list, 'two_three_low')
+        filter_match_code(break_through_average_match_list, 'break_through_average')
+        filter_match_code(yesterday_limit_up_list, 'yesterday_limit_up')
     filter_match_code(limit_up_match_list, 'limit_up')
 
 def filter_match_code(match_code, match_type):
