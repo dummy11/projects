@@ -34,7 +34,7 @@ class find_break_through_average(object):
         sort_list = sorted(line_list)
         open_index = sort_list.index(open[0])
         close_index = sort_list.index(close[0])
-        if close_index - open_index > 4:
+        if close_index - open_index > 5:
             return 1
         else:
             return 0

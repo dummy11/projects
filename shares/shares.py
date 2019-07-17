@@ -360,7 +360,7 @@ def parse_real_time_data(valid_code, day_before):
                 try:
                     i = all_code.index(code)
                 except:
-                    print ('%s is not in list'%code)
+                    #print ('%s is not in list'%code)
                     continue
                 trade = all_data.trade[i]
                 real_low = all_data.low[i]
