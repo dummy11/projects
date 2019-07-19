@@ -118,7 +118,7 @@ def get_hist_data(code, get_hist_start, get_hist_end, region_start, region_end):
     pro = ts.pro_api()
     code_pro = code + '.SH' if code[0] == '6' else code + '.SZ'
     print (code_pro, get_hist_start, get_hist_end)
-    data = ts.pro_bar(pro_api=pro, ts_code=code_pro, start_date=get_hist_start.replace('-', ''), end_date=get_hist_end.replace('-', ''))
+    data = ts.pro_bar(pro_api=pro, ts_code=code_pro, adj='qfq', start_date=get_hist_start.replace('-', ''), end_date=get_hist_end.replace('-', ''))
     #data = ts.get_hist_data(code, get_hist_start, get_hist_end)
     if data is not None:
         if not data.pct_chg.empty:

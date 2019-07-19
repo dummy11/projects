@@ -63,5 +63,7 @@ class find_two_three_low(object):
 
 if __name__ == "__main__":
     two_three = find_two_three_low()
-    data = ts.get_hist_data('600744', '2019-05-11', '2019-07-11')
+    ts.set_token('b105dd8b37494c895f838c4cf657a0c80352815b72f877ebaa507f37')
+    pro = ts.pro_api()
+    data = ts.pro_bar(pro_api=pro, ts_code='300739.SZ', adj='qfq', start_date='20181030', end_date='20190718')
     print two_three.is_two_three_low(data)
