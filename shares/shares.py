@@ -344,10 +344,12 @@ def parse_real_time_data(valid_code, day_before):
     index = 0
     retry_num = 0
     match_code = []
+    break_through_match_code = []
     today = datetime.datetime.today()
     hour = int(today.strftime('%H'))
     minute = int(today.strftime('%M'))
     up_down = find_up_down()
+    break_through = find_break_through_average()
     if (hour > 9 or (hour == 9 and minute >= 30)) and hour < 15:
         while (hour < 15):
             retry_num += 1
@@ -398,12 +400,17 @@ def parse_real_time_data(valid_code, day_before):
                                 match_code.append(code)
                     index = 0
                     match_up_down = up_down.is_real_time_up_down(data, trade, real_open, real_high, real_low)
+                    match_break_through = break_through.is_break_through_average_real(data, real_open, trade)
                     if match_up_down:
                         up_down_match_list.append(code)
+                    if match_break_through:
+                        break_through_match_code.append(code)
             # except:
             #     print ("failed to get today all data")
             filter_match_code(match_code, 'limit_up')
             #filter_match_code(up_down_match_list, 'up_down')
+            if not args.limit_up_only:
+                filter_match_code(break_through_match_code, 'break_through')
             time.sleep(300) #every 5 minutes get real time data
             today = datetime.datetime.today()
             hour = int(today.strftime('%H'))
