@@ -39,6 +39,13 @@ class find_break_through_average(object):
         else:
             return 0
 
+    def is_average_sorted(self, data):
+        line_list = self.caculate_average_line(data)
+        if line_list[0] >= line_list[1] and line_list[1] >= line_list[2] and line_list[2] >= line_list[3] and line_list[3] >= line_list[4] and line_list[4] >= line_list[5] and line_list[5] != 0 and line_list[0] <= line_list[5]*(1+0.15):
+            return 1
+        else:
+            return 0
+
     def is_break_through_average_real(self, data, real_open, trade):
         open = list(data.open)
         close = list(data.close)
@@ -55,5 +62,6 @@ class find_break_through_average(object):
 
 if __name__ == "__main__":
     break_average = find_break_through_average()
-    data = ts.get_hist_data('300056', '2019-04-01', '2019-07-12')
+    data = ts.get_hist_data('300056', '2019-04-01', '2019-07-28')
+    print data
     print break_average.is_break_through_average(data)

@@ -36,6 +36,7 @@ up_down_match_list = []
 continue_red_match_list = []
 two_three_low_match_list = []
 break_through_average_match_list = []
+average_sorted_match_list = []
 loss_code_list = []
 limit_up_match_queue = Queue()
 yesterday_limit_up_queue = Queue()
@@ -43,8 +44,9 @@ up_down_match_queue = Queue()
 continue_red_match_queue = Queue()
 two_three_low_match_queue = Queue()
 break_through_average_match_queue = Queue()
+average_sorted_match_queue = Queue()
 limit_up_match_queue_temp = Queue()
-threshold = 0.03
+threshold = 0.04
 yesterday_limit_up_threshold = 1
 
 def filter_code(all_company):
@@ -190,8 +192,8 @@ def get_data(valid_code, day_before):
     for i in range(0, len(valid_code)):
         if not args.parse_only:
             get_code_data(valid_code[i], day_before)
-        if (i%199 == 0 and i > 0 and (not args.parse_only)):
-            time.sleep(55)
+            if (i%199 == 0 and i > 0) or i == 198:
+                time.sleep(55)
 
     with open('local_data/time_region', 'w') as f:
         f.write(str(code_time_region))
@@ -244,6 +246,7 @@ def parse_code_data(code, day_before, retry_num):
         match_continue_red = continue_red.is_continue_red(data)
         match_two_three_low = two_three_low.is_two_three_low(data)
         match_break_through_average = break_through.is_break_through_average(data)
+        match_average_sorted = break_through.is_average_sorted(data)
         if match_up_down:
             up_down_match_queue.put(code)
         if match_continue_red:
@@ -252,6 +255,8 @@ def parse_code_data(code, day_before, retry_num):
             two_three_low_match_queue.put(code)
         if match_break_through_average:
             break_through_average_match_queue.put(code)
+        if match_average_sorted:
+            average_sorted_match_queue.put(code)
 
     else:
         #print ('%s has no local data'%code)
@@ -299,12 +304,16 @@ def parse_hist_data(valid_code, day_before):
     while not break_through_average_match_queue.empty():
         code = break_through_average_match_queue.get()
         break_through_average_match_list.append(code)
+    while not average_sorted_match_queue.empty():
+        code = average_sorted_match_queue.get()
+        average_sorted_match_list.append(code)
 
     if not args.limit_up_only:
         filter_match_code(up_down_match_list, 'up_down')
         filter_match_code(continue_red_match_list, 'continue_red')
         filter_match_code(two_three_low_match_list, 'two_three_low')
         filter_match_code(break_through_average_match_list, 'break_through_average')
+        filter_match_code(average_sorted_match_list, 'average_sorted')
         filter_match_code(yesterday_limit_up_list, 'yesterday_limit_up')
     filter_match_code(limit_up_match_list, 'limit_up')
 
@@ -401,9 +410,9 @@ def parse_real_time_data(valid_code, day_before):
                     index = 0
                     match_up_down = up_down.is_real_time_up_down(data, trade, real_open, real_high, real_low)
                     match_break_through = break_through.is_break_through_average_real(data, real_open, trade)
-                    if match_up_down:
+                    if match_up_down and not code in up_down_match_list:
                         up_down_match_list.append(code)
-                    if match_break_through:
+                    if match_break_through and not code in break_through_match_code:
                         break_through_match_code.append(code)
             # except:
             #     print ("failed to get today all data")
@@ -448,7 +457,7 @@ def main():
         time.sleep(int(args.wait_minute)*60)
 
     if args.real_time:
-        parse_real_time_data(valid_code, 3)  # only choose zhangting share in 3 days
+        parse_real_time_data(valid_code, day_before)  # only choose zhangting share in 3 days
     else:
         parse_hist_data(valid_code, day_before)
 
